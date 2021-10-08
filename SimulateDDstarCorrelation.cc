@@ -157,8 +157,12 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     pythia.init();
 
     // load efficiencies and mass distributions
-    TFile* inFileEffD = TFile::Open("Analysis_output_LHC21dn_TOFPID.root"); //PbPb file
-    TH2F* hPtVsYEffD = (TH2F*)inFileEffD->Get("hPtvsYRecSig_RecoCand");
+    TFile* inFileEffD = TFile::Open("output_PbPbminbias.root"); //PbPb file
+    TH1F* hPtEffD[4];
+    for(auto iRap=0; iRap<4; iRap++)
+    {
+        hPtEffD[iRap] = (TH1F*)inFileEffD->Get(Form("Efficiency_TOFplusRICHPID_rap%d", iRap));
+    }
     TFile* inFileEffPi = TFile::Open("lut_eff_vs_pt.root");
     TGraph* gPtEffPi = (TGraph*)inFileEffPi->Get("lutCovm.el.20kG.rmin20.geometry_v1.dat;1");
     TSpline3* sPtEffPi = new TSpline3("sPtEffPi", gPtEffPi);
@@ -239,9 +243,22 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
 
                     auto ptD = std::sqrt(pythia.event[dauList[0]].px()*pythia.event[dauList[0]].px() + pythia.event[dauList[0]].py()*pythia.event[dauList[0]].py());
                     auto ptPi = std::sqrt(pythia.event[dauList[1]].px()*pythia.event[dauList[1]].px() + pythia.event[dauList[1]].py()*pythia.event[dauList[1]].py());
-                    auto binY = hPtVsYEffD->GetYaxis()->FindBin(pythia.event[dauList[0]].y());
-                    auto binPt = hPtVsYEffD->GetXaxis()->FindBin(ptD);
-                    auto effD = hPtVsYEffD->GetBinContent(binPt, binY);
+
+                    auto yPart = abs(pythia.event[dauList[0]].y());
+                    int iY = -1;
+                    if(yPart>4)
+                        continue;
+                    else if(yPart<1)
+                        iY = 0;
+                    else if(yPart<2)
+                        iY = 1;
+                    else if(yPart<3)
+                        iY = 2;
+                    else
+                        iY = 3;
+                    auto binPt = hPtEffD[iY]->GetXaxis()->FindBin(ptD);
+                    auto effD = hPtEffD[iY]->GetBinContent(binPt);
+
                     auto effPi = sPtEffPi->Eval(ptPi) / 100;
                     effDstar.push_back(effD*effPi);
 
@@ -259,9 +276,20 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                         continue;
 
                     auto ptPart = std::sqrt(pythia.event[iPart].px()*pythia.event[iPart].px() + pythia.event[iPart].py()*pythia.event[iPart].py());
-                    auto binPt = hPtVsYEffD->GetXaxis()->FindBin(ptPart);
-                    auto binY = hPtVsYEffD->GetYaxis()->FindBin(pythia.event[iPart].y());
-                    effDmeson.push_back(hPtVsYEffD->GetBinContent(binPt, binY));
+                    auto yPart = abs(pythia.event[iPart].y());
+                    int iY = -1;
+                    if(yPart>4)
+                        continue;
+                    else if(yPart<1)
+                        iY = 0;
+                    else if(yPart<2)
+                        iY = 1;
+                    else if(yPart<3)
+                        iY = 2;
+                    else
+                        iY = 3;
+                    auto binPt = hPtEffD[iY]->GetXaxis()->FindBin(ptPart);
+                    effDmeson.push_back(hPtEffD[iY]->GetBinContent(binPt));
 
                     ROOT::Math::PxPyPzMVector part(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
                     partDmeson.push_back(part);
