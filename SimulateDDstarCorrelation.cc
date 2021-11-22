@@ -44,15 +44,15 @@ namespace
         kHardQCD
     };
 
-    std::array<int, 1> DmesonPDG{421}; // D0
-    std::array<int, 1> DstarPDG{413}; // D*+
+    std::array<int, 2> DmesonPDG{411, 421}; // D+, D0
+    std::array<int, 2> DstarPDG{413, 423}; // D*+, D*0
 }
 
 //__________________________________________________________________________________________________
 void SimulateDDstarCorrelation(int nEvents=1000000, int tune=kCRMode2, int process=kSoftQCD, float energy=13000, int seed=42, std::string outFileNameRoot="AnalysisResults.root");
 float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2);
 template<typename T>
-bool CheckDauAcc(T &ptDauArray, T &etaDauArray);
+bool CheckDauAcc(T &ptDauArray, T &etaDauArray, T &eDauArray, T &pdgDauArray);
 template<typename T, typename T2>
 bool IsFromBeauty(T &mothers, T2 &pythia);
 
@@ -146,7 +146,7 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     pythia.readString("421:onIfMatch = 211 321");
     pythia.readString("411:onIfMatch = 211 211 321");
     pythia.readString("413:onIfMatch = 211 421");
-    pythia.readString("423:onIfMatch = 11 421");
+    pythia.readString("423:onIfMatch = 22 421"); // for simplicity, let's consider only D0* --> D0 gamma
 
     // init
     pythia.readString("Random:setSeed = on");
@@ -161,7 +161,8 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     TH1F* hPtEffD[4];
     for(auto iRap=0; iRap<4; iRap++)
     {
-        hPtEffD[iRap] = (TH1F*)inFileEffD->Get(Form("Efficiency_TOFplusRICHPID_rap%d", iRap));
+        hPtEffD[iRap] = (TH1F*)inFileEffD->Get(Form("Efficiency_PerfectPID_rap%d", iRap));
+        hPtEffD[iRap]->SetDirectory(0);
     }
     TFile* inFileEffPi = TFile::Open("lut_eff_vs_pt.root");
     TGraph* gPtEffPi = (TGraph*)inFileEffPi->Get("lutCovm.el.20kG.rmin20.geometry_v1.dat;1");
@@ -174,10 +175,10 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     {
         for(auto &pdgDmeson: DmesonPDG)
         {
-            hPairSE[pdgDstar][pdgDmeson]["part"] = new TH3F(Form("hPairSE_%d_%d", pdgDstar, pdgDmeson), ";#it{p}_{T}^{D} (GeV/#it{c});;#it{p}_{T}^{D^{*}} (GeV/#it{c});#it{k}^{*} (GeV/#it{c})pairs", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
-            hPairSE[pdgDstar][pdgDmeson]["antipart"] = new TH3F(Form("hPairSE_%d_%d", pdgDstar, -pdgDmeson), ";#it{p}_{T}^{D} (GeV/#it{c});;#it{p}_{T}^{D^{*}} (GeV/#it{c});#it{k}^{*} (GeV/#it{c});pairs", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
-            hPairME[pdgDstar][pdgDmeson]["part"] = new TH3F(Form("hPairME_%d_%d", pdgDstar, pdgDmeson), ";#it{p}_{T}^{D} (GeV/#it{c});;#it{p}_{T}^{D^{*}} (GeV/#it{c});#it{k}^{*} (GeV/#it{c});pairs", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
-            hPairME[pdgDstar][pdgDmeson]["antipart"] = new TH3F(Form("hPairME_%d_%d", pdgDstar, -pdgDmeson), ";#it{p}_{T}^{D} (GeV/#it{c});;#it{p}_{T}^{D^{*}} (GeV/#it{c});#it{k}^{*} (GeV/#it{c});pairs", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
+            hPairSE[pdgDstar][pdgDmeson]["part"] = new TH3F(Form("hPairSE_%d_%d", pdgDstar, pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
+            hPairSE[pdgDstar][pdgDmeson]["antipart"] = new TH3F(Form("hPairSE_%d_%d", pdgDstar, -pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
+            hPairME[pdgDstar][pdgDmeson]["part"] = new TH3F(Form("hPairME_%d_%d", pdgDstar, pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
+            hPairME[pdgDstar][pdgDmeson]["antipart"] = new TH3F(Form("hPairME_%d_%d", pdgDstar, -pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
         }
     }
 
@@ -191,6 +192,8 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     std::vector<int> pdgDstar{};
     std::vector<float> effDmeson{};
     std::vector<float> effDstar{};
+    std::vector<int> motherDmeson{};
+    std::vector<int> idxDstar{};
     std::deque<std::vector<int>> pdgBufferDmeson{};
     std::deque<std::vector<int>> pdgBufferDstar{};
     std::deque<std::vector<float>> effBufferDmeson{};
@@ -203,17 +206,21 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
         {
             int pdg = pythia.event[iPart].id();
             int absPdg = std::abs(pdg);
+            bool isDmeson = std::find(DmesonPDG.begin(), DmesonPDG.end(), absPdg) != DmesonPDG.end();
+            bool isDstar = std::find(DstarPDG.begin(), DstarPDG.end(), absPdg) != DstarPDG.end();
 
-            if (find(DmesonPDG.begin(), DmesonPDG.end(), absPdg) == DmesonPDG.end() && find(DstarPDG.begin(), DstarPDG.end(), absPdg) == DstarPDG.end())
+            if (!isDstar && !isDmeson)
+                continue;
+            if (isDmeson && pythia.event[iPart].pT() < 1)
                 continue;
 
             std::vector<int> mothers = pythia.event[iPart].motherList();
             bool isFromDstar = false;
-            if(absPdg == 421) // check if D0 is D* daughter, reject
+            if(absPdg == 421) // check if D0 is D* daughter, then reject
             {
                 for(auto &mom: mothers)
                 {
-                    if(std::abs(pythia.event[mom].id()) == 413) // like setting a veto
+                    if(std::abs(pythia.event[mom].id()) == 413) // like setting a veto (only for charged D*, no clear what to do with neutral D*)
                         isFromDstar = true;
                 }
             }
@@ -221,66 +228,80 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                 continue;
 
             auto dauList = pythia.event[iPart].daughterList();
-            std::vector<double> ptDau{}, etaDau{};
+            std::vector<double> ptDau{}, etaDau{}, pdgDau{}, eDau{};
             for(auto &dau: dauList)
             {
-                auto pdgDau = std::abs(pythia.event[iPart].id());
-                if((absPdg != 423 && (pdgDau == 211 || pdgDau == 321)) ||
-                   (absPdg == 423 && (pdgDau == 211 || pdgDau == 321 || pdgDau == 22)))
+                auto absPdgDau = std::abs(pythia.event[dau].id());
+                if((absPdg != 423 && (absPdgDau == 211 || absPdgDau == 321)) ||
+                   (absPdg == 423 && (absPdgDau == 211 || absPdgDau == 321 || absPdgDau == 22)))
                 {
                     ptDau.push_back(std::sqrt(pythia.event[dau].px()*pythia.event[dau].px() + pythia.event[dau].py()*pythia.event[dau].py() + pythia.event[dau].pz()*pythia.event[dau].pz()));
                     etaDau.push_back(pythia.event[dau].eta());
+                    pdgDau.push_back(std::abs(pythia.event[dau].id()));
+                    eDau.push_back(pythia.event[dau].e());
                 }
             }
 
-            if(std::find(DstarPDG.begin(), DstarPDG.end(), absPdg) != DstarPDG.end())
+            if(isDstar)
             {
                 bool isFromB = IsFromBeauty(mothers, pythia);
                 if(!isFromB)
                 {
-                    if(!CheckDauAcc(ptDau, etaDau))
+                    if(!CheckDauAcc(ptDau, etaDau, eDau, pdgDau))
                         continue;
 
-                    auto ptD = std::sqrt(pythia.event[dauList[0]].px()*pythia.event[dauList[0]].px() + pythia.event[dauList[0]].py()*pythia.event[dauList[0]].py());
-                    auto ptPi = std::sqrt(pythia.event[dauList[1]].px()*pythia.event[dauList[1]].px() + pythia.event[dauList[1]].py()*pythia.event[dauList[1]].py());
+                    auto ptD = pythia.event[dauList[0]].pT();
+                    auto yD = abs(pythia.event[dauList[0]].y());
+                    if(ptD<1 || yD>4)
+                        continue;
 
-                    auto yPart = abs(pythia.event[dauList[0]].y());
                     int iY = -1;
-                    if(yPart>4)
-                        continue;
-                    else if(yPart<1)
+                    if(yD<1)
                         iY = 0;
-                    else if(yPart<2)
+                    else if(yD<2)
                         iY = 1;
-                    else if(yPart<3)
+                    else if(yD<3)
                         iY = 2;
                     else
                         iY = 3;
+
                     auto binPt = hPtEffD[iY]->GetXaxis()->FindBin(ptD);
                     auto effD = hPtEffD[iY]->GetBinContent(binPt);
 
-                    auto effPi = sPtEffPi->Eval(ptPi) / 100;
-                    effDstar.push_back(effD*effPi);
+                    if(absPdg != 423)
+                    {
+                        auto ptPi = pythia.event[dauList[1]].pT();
+                        auto effPi = sPtEffPi->Eval(ptPi) / 100;
+                        effDstar.push_back(effD*effPi);
+                    }
+                    else // D0* is reconstructed in D0* --> D0 gamma
+                    {
+                        // assuming 80% flat efficiency
+                        auto effGammma = 0.8;
+                        effDstar.push_back(effD*effGammma);
 
+                    }
                     ROOT::Math::PxPyPzMVector part(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
                     partDstar.push_back(part);
                     pdgDstar.push_back(pdg);
+                    idxDstar.push_back(iPart);
                 }
             }
-            else if(std::find(DmesonPDG.begin(), DmesonPDG.end(), absPdg) != DmesonPDG.end())
+            else if(isDmeson)
             {
                 bool isFromB = IsFromBeauty(mothers, pythia);
                 if(!isFromB)
                 {
-                    if(!CheckDauAcc(ptDau, etaDau))
+                    if(!CheckDauAcc(ptDau, etaDau, eDau, pdgDau))
                         continue;
 
-                    auto ptPart = std::sqrt(pythia.event[iPart].px()*pythia.event[iPart].px() + pythia.event[iPart].py()*pythia.event[iPart].py());
+                    auto ptPart = pythia.event[iPart].pT();
                     auto yPart = abs(pythia.event[iPart].y());
-                    int iY = -1;
-                    if(yPart>4)
+                    if(ptPart<1 || yPart>4)
                         continue;
-                    else if(yPart<1)
+
+                    int iY = -1;
+                    if(yPart<1)
                         iY = 0;
                     else if(yPart<2)
                         iY = 1;
@@ -288,12 +309,13 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                         iY = 2;
                     else
                         iY = 3;
+
                     auto binPt = hPtEffD[iY]->GetXaxis()->FindBin(ptPart);
                     effDmeson.push_back(hPtEffD[iY]->GetBinContent(binPt));
-
                     ROOT::Math::PxPyPzMVector part(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
                     partDmeson.push_back(part);
                     pdgDmeson.push_back(pdg);
+                    motherDmeson.push_back(pythia.event[iPart].mother1());
                 }
             }
         }
@@ -326,6 +348,9 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
         {
             for(size_t iDmeson=0; iDmeson<partDmeson.size(); iDmeson++)
             {
+                if(motherDmeson[iDmeson] == idxDstar[iDstar])
+                    continue;
+
                 double kStar = ComputeKstar(partDstar[iDstar], partDmeson[iDmeson]);
                 double pTDstar = partDstar[iDstar].pt();
                 double pTDmeson = partDmeson[iDmeson].pt();
@@ -359,9 +384,11 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
 
         partDstar.clear();
         pdgDstar.clear();
+        idxDstar.clear();
         effDstar.clear();
         partDmeson.clear();
         pdgDmeson.clear();
+        motherDmeson.clear();
         effDmeson.clear();
     }
 
@@ -395,12 +422,20 @@ float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector pa
 
 //__________________________________________________________________________________________________
 template<typename T>
-bool CheckDauAcc(T &ptDauArray, T &etaDauArray)
+bool CheckDauAcc(T &ptDauArray, T &etaDauArray, T &eDauArray, T &pdgDauArray)
 {
     for(size_t iDau=0; iDau<ptDauArray.size(); iDau++)
     {
-        if(ptDauArray[iDau] < 0.005 || std::abs(etaDauArray[iDau]) > 4.) // pT=50 MeV and eta=4
-            return false;
+        if(pdgDauArray[iDau] != 22) // no photons
+        {
+            if(ptDauArray[iDau] < 0.05 || std::abs(etaDauArray[iDau]) > 4.) // pT>50 MeV and |eta|<4
+                return false;
+        }
+        else // photons
+        {
+            if(eDauArray[iDau] < 0.4 || etaDauArray[iDau] > 4. || etaDauArray[iDau] < 1.6) // E>400 MeV and -1.6<eta<4
+                return false;
+        }
     }
 
     return true;
