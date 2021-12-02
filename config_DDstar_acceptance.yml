@@ -1,0 +1,101 @@
+inputfiles: [
+    'inputs/accstudy/AnalysisResults_vsY_1.root',
+    'inputs/accstudy/AnalysisResults_vsY_2.root',
+    'inputs/accstudy/AnalysisResults_vsY_3.root',
+    'inputs/accstudy/AnalysisResults_vsY_4.root',
+    'inputs/accstudy/AnalysisResults_vsY_5.root',
+    'inputs/accstudy/AnalysisResults_vsY_6.root',
+    'inputs/accstudy/AnalysisResults_vsY_7.root',
+    'inputs/accstudy/AnalysisResults_vsY_8.root',
+    'inputs/accstudy/AnalysisResults_vsY_9.root',
+    'inputs/accstudy/AnalysisResults_vsY_10.root',
+    'inputs/accstudy/AnalysisResults_vsY_11.root',
+    'inputs/accstudy/AnalysisResults_vsY_12.root',
+    'inputs/accstudy/AnalysisResults_vsY_13.root',
+    'inputs/accstudy/AnalysisResults_vsY_14.root',
+    'inputs/accstudy/AnalysisResults_vsY_15.root',
+    'inputs/accstudy/AnalysisResults_vsY_16.root',
+    'inputs/accstudy/AnalysisResults_vsY_17.root',
+    'inputs/accstudy/AnalysisResults_vsY_18.root',
+    'inputs/accstudy/AnalysisResults_vsY_19.root',
+    'inputs/accstudy/AnalysisResults_vsY_20.root',
+    'inputs/accstudy/AnalysisResults_vsY_21.root',
+    'inputs/accstudy/AnalysisResults_vsY_22.root',
+    'inputs/accstudy/AnalysisResults_vsY_23.root',
+    'inputs/accstudy/AnalysisResults_vsY_24.root',
+    'inputs/accstudy/AnalysisResults_vsY_25.root',
+    'inputs/accstudy/AnalysisResults_vsY_26.root',
+    'inputs/accstudy/AnalysisResults_vsY_27.root',
+    'inputs/accstudy/AnalysisResults_vsY_28.root',
+    'inputs/accstudy/AnalysisResults_vsY_29.root',
+    'inputs/accstudy/AnalysisResults_vsY_30.root',
+    'inputs/accstudy/AnalysisResults_vsY_31.root',
+    'inputs/accstudy/AnalysisResults_vsY_32.root',
+    'inputs/accstudy/AnalysisResults_vsY_33.root',
+    'inputs/accstudy/AnalysisResults_vsY_34.root',
+    'inputs/accstudy/AnalysisResults_vsY_35.root',
+    'inputs/accstudy/AnalysisResults_vsY_36.root',
+    'inputs/accstudy/AnalysisResults_vsY_37.root',
+    'inputs/accstudy/AnalysisResults_vsY_38.root',
+    'inputs/accstudy/AnalysisResults_vsY_39.root',
+    'inputs/accstudy/AnalysisResults_vsY_40.root',
+    'inputs/accstudy/AnalysisResults_vsY_41.root',
+    'inputs/accstudy/AnalysisResults_vsY_42.root',
+    'inputs/accstudy/AnalysisResults_vsY_43.root',
+    'inputs/accstudy/AnalysisResults_vsY_44.root',
+    'inputs/accstudy/AnalysisResults_vsY_45.root',
+    'inputs/accstudy/AnalysisResults_vsY_46.root',
+    'inputs/accstudy/AnalysisResults_vsY_47.root',
+    'inputs/accstudy/AnalysisResults_vsY_48.root',
+    'inputs/accstudy/AnalysisResults_vsY_49.root',
+    'inputs/accstudy/AnalysisResults_vsY_50.root',
+    'inputs/accstudy/AnalysisResults_vsY_51.root',
+    'inputs/accstudy/AnalysisResults_vsY_52.root',
+    'inputs/accstudy/AnalysisResults_vsY_53.root',
+    'inputs/accstudy/AnalysisResults_vsY_54.root',
+    'inputs/accstudy/AnalysisResults_vsY_55.root',
+    'inputs/accstudy/AnalysisResults_vsY_56.root',
+    'inputs/accstudy/AnalysisResults_vsY_57.root',
+    'inputs/accstudy/AnalysisResults_vsY_58.root',
+    'inputs/accstudy/AnalysisResults_vsY_59.root',
+    'inputs/accstudy/AnalysisResults_vsY_60.root',
+    'inputs/accstudy/AnalysisResults_vsY_61.root',
+    'inputs/accstudy/AnalysisResults_vsY_62.root',
+    'inputs/accstudy/AnalysisResults_vsY_63.root',
+    'inputs/accstudy/AnalysisResults_vsY_64.root',
+    'inputs/accstudy/AnalysisResults_vsY_65.root',
+    'inputs/accstudy/AnalysisResults_vsY_66.root',
+    'inputs/accstudy/AnalysisResults_vsY_67.root',
+    'inputs/accstudy/AnalysisResults_vsY_68.root',
+    'inputs/accstudy/AnalysisResults_vsY_69.root',
+    'inputs/accstudy/AnalysisResults_vsY_70.root',
+    'inputs/accstudy/AnalysisResults_vsY_71.root',
+    'inputs/accstudy/AnalysisResults_vsY_72.root',
+    'inputs/accstudy/AnalysisResults_vsY_73.root',
+    'inputs/accstudy/AnalysisResults_vsY_74.root',
+    'inputs/accstudy/AnalysisResults_vsY_75.root',
+    'inputs/accstudy/AnalysisResults_vsY_76.root',
+    'inputs/accstudy/AnalysisResults_vsY_77.root',
+    'inputs/accstudy/AnalysisResults_vsY_78.root',
+    'inputs/accstudy/AnalysisResults_vsY_79.root',
+    'inputs/accstudy/AnalysisResults_vsY_80.root'
+    ]
+
+species:
+    D: 421
+    Dstar: 413
+
+rapidity:
+    plot: true
+
+predictions:
+    1fm: corr_DDstar/1fm.dat
+    2fm: corr_DDstar/2fm.dat
+    3fm: corr_DDstar/3fm.dat
+    5fm: corr_DDstar/5fm.dat
+
+Dmesonperf:
+    inputfile: Analysis_output_LHC21dn_TOFPID.root
+    ptmins: [1., 2., 3., 4., 6., 8.]
+    ptmaxs: [2., 3., 4., 6., 8., 10.]
+
