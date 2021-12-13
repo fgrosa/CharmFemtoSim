@@ -2,14 +2,14 @@
 Script for the computation of the expected D-D* correlation function
 '''
 
+import os
 import sys
 import argparse
-from typing import Literal
 import pandas as pd
 import numpy as np
 import yaml
-from ROOT import TFile, TGaxis, TCanvas, TF1, TGraph, TH1F, TSpline3, TLegend, TLatex # pylint: disable=import-error,no-name-in-module
-from ROOT import kAzure, kGreen, kOrange, kRed, kBlack, kFullCircle, kOpenCircle, gStyle, kRainBow # pylint: disable=import-error,no-name-in-module
+from ROOT import TFile, TGaxis, TCanvas, TF1, TGraph, TH1F, TSpline3, TLegend, TLatex, TLine # pylint: disable=import-error,no-name-in-module
+from ROOT import kAzure, kGreen, kOrange, kRed, kBlack, kGray, kFullCircle, kOpenCircle, kFullDiamond, gStyle, kRainBow # pylint: disable=import-error,no-name-in-module
 
 gStyle.SetPadBottomMargin(0.12)
 gStyle.SetPadTopMargin(0.05)
@@ -27,12 +27,14 @@ TGaxis.SetMaxDigits(3)
 
 parser = argparse.ArgumentParser(description='Arguments')
 parser.add_argument('cfgFileName', metavar='text', default='config.yml')
+parser.add_argument('--yMax', type=float, default=8.)
+parser.add_argument('--xMax', type=float, default=0.5)
 args = parser.parse_args()
 
 with open(args.cfgFileName, 'r') as ymlcfgFileName:
     cfg = yaml.load(ymlcfgFileName, yaml.FullLoader)
 
-inFileNames = cfg['inputfiles']
+inDirName = cfg['inputdir']
 doAccStudy = cfg['rapidity']['plot']
 Dspecie = cfg['species']['D']
 Dstarspecie = cfg['species']['Dstar']
@@ -69,18 +71,20 @@ else:
     print(f'ERROR: D* specie {Dstarspecie} not supported! Exit')
     sys.exit()
 
+inFileNames = os.listdir(inDirName)
 nEvents = cfg['eventsperfile'] * len(inFileNames)
+
+print(f'\nAnalysing simulation outputs with {len(inFileNames)} files for a total of {nEvents} events\n')
 
 hSEDistrVsPt, hMEDistrVsPt, hSEDistrVsY = None, None, None
 for inFileName in inFileNames:
-    inFile = TFile.Open(inFileName)
+    inFile = TFile.Open(os.path.join(inDirName, inFileName))
     hTmpSE = inFile.Get(f'hPairSE_{Dstarspecie}_{Dspecie}')
     hTmpME = inFile.Get(f'hPairME_{Dstarspecie}_{Dspecie}')
     hTmpSE.SetDirectory(0)
     hTmpME.SetDirectory(0)
     if doAccStudy:
         hTmpVsY = inFile.Get(f'hPairVsY_{Dstarspecie}_{Dspecie}')
-        hTmpVsY.SetDirectory(0)
     if hSEDistrVsPt:
         hSEDistrVsPt.Add(hTmpSE)
         hMEDistrVsPt.Add(hTmpME)
@@ -184,8 +188,8 @@ cPtVsKstar.Update()
 
 hSEDistr.Scale(lumiScaleFactorPP * BRfactor)
 hMEDistr.Scale(lumiScaleFactorPP * BRfactor)
-hSEDistr.Rebin(25)
-hMEDistr.Rebin(25)
+hSEDistr.Rebin(5)
+hMEDistr.Rebin(5)
 hSEDistr.SetLineColor(kBlack)
 hMEDistr.SetLineColor(kBlack)
 hSEDistr.SetLineWidth(2)
@@ -194,36 +198,56 @@ hSEDistr.SetMarkerColor(kBlack)
 hMEDistr.SetMarkerColor(kBlack)
 hSEDistr.SetMarkerStyle(kFullCircle)
 hMEDistr.SetMarkerStyle(kFullCircle)
-hSignalOverBkgDVsKstar.Rebin(25)
-hSignalOverBkgDstarVsKstar.Rebin(25)
-hSignalOverBkgDVsKstar.Scale(1./25)
-hSignalOverBkgDstarVsKstar.Scale(1./25)
+hSignalOverBkgDVsKstar.Rebin(5)
+hSignalOverBkgDstarVsKstar.Rebin(5)
+hSignalOverBkgDVsKstar.Scale(1./5)
+hSignalOverBkgDstarVsKstar.Scale(1./5)
 
 hCFPythia = hSEDistr.Clone('hCFPythia')
 hCFPythia.GetYaxis().SetDecimals()
-hCFPythia.GetYaxis().SetTitle(f'#it{{C}}_{Dtitle}{Dstartitle}')
+hCFPythia.GetYaxis().SetTitle(f'#it{{C}}_{{{Dtitle}{Dstartitle}}}')
 hCFPythia.Divide(hMEDistr)
-fPol1 = TF1('fPol1', 'pol1', 1., 2., 1)
-hCFPythia.Fit('fPol1', '0Q', '', 1., 2.)
+fPol1 = TF1('fPol1', 'pol1', 0., 2.)
+fPol1.SetLineWidth(2)
+fPol1.SetLineColor(kAzure+4)
+hCFPythia.Fit('fPol1', '0', '', 0.2, 2.)
 isFlat = False
-if abs(fPol1.GetParError(1) / fPol1.GetParameter(1)) < 2: #compatible with 0 within 2 sigma
-    fPol0 = TF1('fPol0', 'pol0', 1., 2., 1)
-    hCFPythia.Fit('fPol0', '0Q', '', 1., 2.)
+if abs(fPol1.GetParameter(1)) < 1.e-4: # small deviation from 1, negligible
+    fPol0 = TF1('fPol0', 'pol0', 0., 2.)
+    fPol0.SetLineWidth(2)
+    fPol0.SetLineColor(kAzure+4)
+    hCFPythia.Fit('fPol0', '0', '', 0.2, 2.)
     scaleFact = fPol0.GetParameter(0)
     isFlat = True # no jet background
+    fPol0.SetParameter(0, fPol0.GetParameter(0)/scaleFact)
+    hCFPythia.Scale(1./scaleFact)
 else:
-    scaleFact = (1-fPol1.GetParameter(0)) / fPol1.GetParameter(1)
-hCFPythia.Scale(1./scaleFact)
+    scaleFact = fPol1.Eval(2)
+    hCFPythia.Scale(1./scaleFact)
+    fPol2 = TF1('fPol2', 'pol2', 0., 2.)
+    fPol2.SetLineWidth(2)
+    fPol2.SetLineColor(kAzure+4)
+    hCFPythia.Fit('fPol2', '0', '', 0.2, 2.)
 hMEDistr.Scale(scaleFact)
 
-cDistrPythia = TCanvas('cDistrPythia', '', 1800, 600)
+lineAtOne = TLine(0., 1., 2., 1.)
+lineAtOne.SetLineWidth(2)
+lineAtOne.SetLineStyle(9)
+lineAtOne.SetLineColor(kGray+1)
+
+cDistrPythia = TCanvas('cDistrPythia', '', 1250, 500)
 cDistrPythia.Divide(3, 1)
 cDistrPythia.cd(1).SetLogy()
 hSEDistr.Draw('e')
 cDistrPythia.cd(2).SetLogy()
 hMEDistr.Draw('e')
 cDistrPythia.cd(3)
+if hCFPythia.GetMaximum() > 8.:
+    hCFPythia.GetYaxis().SetRangeUser(0., 8.)
 hCFPythia.Draw('e')
+lineAtOne.Draw()
+if not isFlat:
+    fPol2.Draw('same')
 cDistrPythia.Modified()
 cDistrPythia.Update()
 
@@ -270,7 +294,8 @@ predColors = {'1fm': kAzure+4,
               '3fm': kOrange+7,
               '5fm': kRed+1}
 
-gPred, sPred, hSEPred, hSEPredBkgD, hSEPredBkgDstar, hSEPredBkgDDstar, hSEPredBkg, hCFPred = ({} for _ in range(8))
+gPred, sPred, hSEPred, hSEPredWithJets, hSEPredBkgD, hSEPredBkgDstar, \
+    hSEPredBkgDDstar, hSEPredBkg, hCFPred = ({} for _ in range(9))
 for pred in predictions:
     gPred[pred] = TGraph(1)
     gPred[pred].SetLineColor(predColors[pred])
@@ -279,29 +304,40 @@ for pred in predictions:
     hSEPred[pred] = hSEDistr.Clone(f'hSEPred{pred}')
     hSEPred[pred].SetLineColor(predColors[pred])
     hSEPred[pred].SetMarkerColor(predColors[pred])
-    for iP, (kStar, cf) in enumerate(zip(predictions[pred]['kstar'].to_numpy(), predictions[pred]['cf'].to_numpy())):
+    for iP, (kStar, cf) in enumerate(
+        zip(predictions[pred]['kstar'].to_numpy(), predictions[pred]['cf'].to_numpy())):
         gPred[pred].SetPoint(iP, kStar/1000, cf)
     sPred[pred] = TSpline3(f'sPred{pred}', gPred[pred])
     for iBin in range(1, hSEDistr.GetNbinsX()+1):
         kStarCent = hSEDistr.GetXaxis().GetBinCenter(iBin)
-        hSEPred[pred].SetBinContent(iBin, hMEDistr.GetBinContent(iBin) * sPred[pred].Eval(kStarCent))
-        hSEPred[pred].SetBinError(iBin, np.sqrt(hSEPred[pred].GetBinContent(iBin)))
+        hSEPred[pred].SetBinContent(
+            iBin, hMEDistr.GetBinContent(iBin) * sPred[pred].Eval(kStarCent))
+        hSEPred[pred].SetBinError(
+            iBin, np.sqrt(hSEPred[pred].GetBinContent(iBin)))
 
     hSEPredBkgD[pred] = hSEPred[pred].Clone(f'hSEPredBkgD{pred}')
     hSEPredBkgDstar[pred] = hSEPred[pred].Clone(f'hSEPredBkgDstar{pred}')
     hSEPredBkgDDstar[pred] = hSEPred[pred].Clone(f'hSEPredBkgDDstar{pred}')
     hSEPredBkg[pred] = hSEPred[pred].Clone(f'hSEPredBkg{pred}')
+    hSEPredWithJets[pred] = hSEPred[pred].Clone(f'hSEPredWithJets{pred}')
+    hSEPredBkg[pred].SetDirectory(0)
+    hSEPredWithJets[pred].SetDirectory(0)
     hSEPredBkg[pred].SetMarkerStyle(kOpenCircle)
+    hSEPredWithJets[pred].SetMarkerStyle(kFullDiamond)
 
     for iKstarBin in range(1, hSEPred[pred].GetNbinsX()+1):
         signalSq = hSEPred[pred].GetBinContent(iKstarBin)
         signal = np.sqrt(signalSq)
         bkgD = 1./hSignalOverBkgDVsKstar.GetBinContent(iKstarBin) * signal
-        bkgDstar = 1./hSignalOverBkgDstarVsKstar.GetBinContent(iKstarBin) * signal
-        hSEPredBkgD[pred].SetBinContent(iKstarBin, signal * bkgD)
-        hSEPredBkgDstar[pred].SetBinContent(iKstarBin, signal * bkgDstar)
-        hSEPredBkgDDstar[pred].SetBinContent(iKstarBin, bkgD * bkgDstar)
-        hSEPredBkg[pred].SetBinContent(iKstarBin, bkgD * bkgDstar + signal * bkgD + signal * bkgDstar)
+        bkgDstar = 1./hSignalOverBkgDstarVsKstar.GetBinContent(iKstarBin) * signal * 10
+        if hSEPred[pred].GetBinContent(iBin) != np.nan:
+            hSEPredBkgD[pred].SetBinContent(iKstarBin, signal * bkgD)
+            hSEPredBkgDstar[pred].SetBinContent(iKstarBin, signal * bkgDstar)
+            hSEPredBkgDDstar[pred].SetBinContent(iKstarBin, bkgD * bkgDstar)
+            hSEPredBkg[pred].SetBinContent(
+                iKstarBin, bkgD * bkgDstar + signal * bkgD + signal * bkgDstar)
+        else:
+            hSEPredBkg[pred].SetBinContent(1)
 
     hCFPred[pred] = hSEPred[pred].Clone(f'hCFPred{pred}')
     hCFPred[pred].Divide(hMEDistr)
@@ -317,17 +353,29 @@ for pred in predictions:
         if not isFlat:
             # we have more pairs thanks to jets, syst unc for pedestal subtraction not considered
             kStarCent = hCFPred[pred].GetBinCenter(iBin)
-            S *= fPol1.Eval(kStarCent)
-            hCFPred[pred].SetBinError(iBin, np.sqrt(S+2*B) / S * hCFPred[pred].GetBinContent(iBin))
+            S *= fPol2.Eval(kStarCent)
+            hSEPredWithJets[pred].SetBinContent(iBin, S)
+            if hSEPred[pred].GetBinContent(iBin) != np.nan:
+                hSEPredWithJets[pred].SetBinContent(
+                    iBin,
+                    hSEPred[pred].GetBinContent(iBin) * fPol2.Eval(kStarCent)
+                )
+            else:
+                hSEPredWithJets[pred].SetBinContent(1)
+            B *= fPol2.Eval(kStarCent)
+            hSEPredBkg[pred].SetBinContent(iBin, B)
 
-        hCFPred[pred].SetBinError(iBin, np.sqrt(S+2*B) / S * hCFPred[pred].GetBinContent(iBin))
+        if hSEPred[pred].GetBinContent(iBin) != np.nan:
+            hCFPred[pred].SetBinError(iBin, np.sqrt(S+2*B) / S * hCFPred[pred].GetBinContent(iBin))
+        else:
+            hCFPred[pred].SetBinError(iBin, 1)
 
 legSE = TLegend(0.4, 0.2, 0.7, 0.4)
 legSE.SetTextSize(0.045)
 legSE.SetFillStyle(0)
 legSE.SetBorderSize(0)
-legSE.AddEntry(hSEPred[pred], 'Signal pairs', 'p')
-legSE.AddEntry(hSEPredBkg[pred], 'Background pairs', 'p')
+legSE.AddEntry(hSEPred['1fm'], 'Signal pairs', 'p')
+legSE.AddEntry(hSEPredBkg['1fm'], 'Background pairs', 'p')
 
 legModels = TLegend(0.5, 0.6, 0.85, 0.8)
 legModels.SetTextSize(0.045)
@@ -338,19 +386,24 @@ legModels.AddEntry(hCFPred['2fm'], '2 fm', 'l')
 legModels.AddEntry(hCFPred['3fm'], '3 fm', 'l')
 legModels.AddEntry(hCFPred['5fm'], '5 fm (Pb#minusPb)', 'l')
 
-cDistrPred = TCanvas('cDistrPred', '', 1800, 600)
+cDistrPred = TCanvas('cDistrPred', '', 1250, 500)
 cDistrPred.Divide(3, 1)
-cDistrPred.cd(1).DrawFrame(0., 1., 2., hSEPred[pred].GetMaximum()*10,
+cDistrPred.cd(1).DrawFrame(0., 1., args.xMax, hSEPred[pred].GetMaximum()*10,
                            f';#it{{k}}* (GeV/#it{{c}});{hSEPred[pred].GetYaxis().GetTitle()}')
 cDistrPred.cd(1).SetLogy()
 for pred in predictions:
     if pred in ['1fm']:
         hSEPred[pred].Draw('esame')
+        if not isFlat:
+            hSEPredWithJets[pred].Draw('esame')
         hSEPredBkg[pred].Draw('esame')
 legSE.Draw()
+cDistrPred.cd(2).DrawFrame(0., 1., args.xMax, hMEDistr.GetMaximum()*10,
+                           f';#it{{k}}* (GeV/#it{{c}});{hMEDistr.GetYaxis().GetTitle()}')
 cDistrPred.cd(2).SetLogy()
-hMEDistr.Draw('e')
-cDistrPred.cd(3).DrawFrame(0., 0., 0.5, 5., f';#it{{k}}* (GeV/#it{{c}});#it{{C}}_{{{Dtitle}{Dstartitle}}}')
+hMEDistr.Draw('esame')
+cDistrPred.cd(3).DrawFrame(0., 0., args.xMax, args.yMax,
+                           f';#it{{k}}* (GeV/#it{{c}});#it{{C}}_{{{Dtitle}{Dstartitle}}}')
 for pred in predictions:
     gPred[pred].Draw('C')
     if pred in ['1fm']:
@@ -366,7 +419,8 @@ lat.SetTextFont(42)
 lat.SetTextColor(kBlack)
 
 cResult = TCanvas('cResult', '', 800, 800)
-hFrame = cResult.DrawFrame(0., 0.01, 0.5, 8., f';#it{{k}}* (GeV/#it{{c}});#it{{C}}_{{{Dtitle}{Dstartitle}}}')
+hFrame = cResult.DrawFrame(0., 0.01, args.xMax, args.yMax,
+                           f';#it{{k}}* (GeV/#it{{c}});#it{{C}}_{{{Dtitle}{Dstartitle}}}')
 hFrame.GetYaxis().SetDecimals()
 hFrame.GetXaxis().SetNdivisions(505)
 for pred in predictions:
@@ -379,17 +433,59 @@ lat.DrawLatex(0.4, 0.5, '#it{L}_{int}:')
 lat.DrawLatex(0.4, 0.45, '   - pp = 18 fb^{#minus1}')
 lat.DrawLatex(0.4, 0.4, '   - 0#minus10% Pb#minusPb = 35 nb^{#minus1}')
 legModels.Draw()
+cResult.Modified()
+cResult.Update()
 
 cResult.SaveAs(cfg['output']['file'])
+cDistrPythia.SaveAs('DistrPythia_'+cfg['output']['file'])
+cDistrPred.SaveAs('DistrPredExample_'+cfg['output']['file'])
 
 if doAccStudy:
-    hSEDistrVsYD = hSEDistrVsY.Project3D('xy')
-    hSEDistrVsYDstar = hSEDistrVsY.Project3D('xz')
-    cPairsVsRapidity = TCanvas('cPairsVsRapidity', '', 800, 400)
-    cPairsVsRapidity.Divide(2, 1)
-    cPairsVsRapidity.cd(1)
-    hSEDistrVsYD.Draw('colz')
-    cPairsVsRapidity.cd(2)
-    hSEDistrVsYDstar.Draw('colz')
+    hSEDistrVsYD, hSEDistrVsYDstar, cPairsVsRapidity, hKstar, hKstarRatio = {}, {}, {}, {}, {}
+    cKstar = TCanvas('cKstar', '', 1200, 600)
+    cKstar.Divide(2, 1)
+    cKstar.cd(1).DrawFrame(0., 1.e-1, 1., 1.e5,
+                           f';k* (GeV/#it{{c}}); {Dtitle}{Dstartitle} pairs (a.u.)')
+    cKstar.cd(2).DrawFrame(0., 1.e-3, 1., 1.,
+                           ';k* (GeV/#it{c}); ratio to ALICE3')
+    legExp = TLegend(0.2, 0.7, 0.45, 0.9)
+    legExp.SetTextSize(0.045)
+    legExp.SetFillStyle(0)
+    legExp.SetBorderSize(0)
+
+    colors = {'ALICE3': kOrange+7, 'ALICE2': kRed+1, 'LHCb':kAzure+4}
+    for det in ['ALICE3', 'ALICE2', 'LHCb']:
+        if det == 'ALICE2':
+            hSEDistrVsY.GetAxis(3).SetRange(1, 1)
+        elif det == 'LHCb':
+            hSEDistrVsY.GetAxis(3).SetRange(2, 2)
+        hSEDistrVsYD[det] = hSEDistrVsY.Projection(0, 2)
+        hSEDistrVsYDstar[det] = hSEDistrVsY.Projection(1, 2)
+        hKstar[det] = hSEDistrVsY.Projection(2)
+        hKstar[det].Rebin(5)
+        hKstar[det].SetLineWidth(2)
+        hKstar[det].SetMarkerStyle(kFullCircle)
+        hKstar[det].SetMarkerColor(colors[det])
+        hKstar[det].SetLineColor(colors[det])
+        hKstarRatio[det] = hKstar[det].Clone(f'hKstarRatio{det}')
+        hKstarRatio[det].Divide(hKstar[det], hKstar['ALICE3'], 1., 1., 'B')
+        legExp.AddEntry(hKstar[det], det, 'lp')
+        cKstar.cd(1).SetLogy()
+        hKstar[det].Draw('esame')
+        if det == 'LHCb':
+            legExp.Draw()
+        if det != 'ALICE3':
+            cKstar.cd(2)
+            hKstarRatio[det].Draw('esame')
+        cPairsVsRapidity[det] = TCanvas(f'cPairsVsRapidity_{det}', '', 1200, 600)
+        cPairsVsRapidity[det].Divide(2, 1)
+        cPairsVsRapidity[det].cd(1).SetRightMargin(0.15)
+        hSEDistrVsYD[det].Draw('colz')
+        cPairsVsRapidity[det].cd(2).SetRightMargin(0.15)
+        hSEDistrVsYDstar[det].Draw('colz')
+        cPairsVsRapidity[det].SaveAs('Ydistr'+'_'+det+cfg['output']['file'].replace('ALICE3', ''))
+    cKstar.Modified()
+    cKstar.Update()
+    cKstar.SaveAs('kStar_distr_diffExperiments'+cfg['output']['file'].replace('ALICE3', ''))
 
 input('Press enter to exit')

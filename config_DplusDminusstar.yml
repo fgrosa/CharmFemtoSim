@@ -1,8 +1,8 @@
 inputdir: inputs/X
 
 species:
-    D: -421
-    Dstar: 423
+    D: -411
+    Dstar: 413
 
 rapidity:
     plot: true
@@ -10,10 +10,10 @@ rapidity:
 eventsperfile: 5000000
 
 predictions:
-    1fm: predictions/X/1fm.dat
-    2fm: predictions/X/2fm.dat
-    3fm: predictions/X/3fm.dat
-    5fm: predictions/X/5fm.dat
+    1fm: predictions/X/charged_1fm.dat
+    2fm: predictions/X/charged_2fm.dat
+    3fm: predictions/X/charged_3fm.dat
+    5fm: predictions/X/charged_5fm.dat
 
 Dmesonperf:
     inputfile: Analysis_output_LHC21dn_TOFPID.root
@@ -21,4 +21,4 @@ Dmesonperf:
     ptmaxs: [2., 3., 4., 6., 8., 10.]
 
 output:
-    file: ALICE3_DDstarbar_pp_PbPb.eps
+    file: ALICE3_DDstarbar_charged_pp_PbPb.eps
