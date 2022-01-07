@@ -154,6 +154,8 @@ void SimulateSourceCharmHadrons(int nEvents, int seed, std::string outFileName) 
 
         for(auto iLightFirst{0u}; iLightFirst<pdgLight.size(); ++iLightFirst) {
             for(auto iLightSecond{iLightFirst+1}; iLightSecond<pdgLight.size(); ++iLightSecond) {
+                if(gRandom->Rndm() > 0.1) // downscale light hadrons, otherwise too large outputs
+                    continue;
                 double kStar{0}, rStar{0}, mT{0};
                 ComputeRandKstar(momLight[iLightFirst], momLight[iLightSecond], prodvtxLight[iLightFirst], prodvtxLight[iLightSecond], kStar, rStar, mT);
                 double arr4sparse[6] = {rStar, kStar, mT, (double)nCh, partBin[pdgLight[iLightSecond]], partBin[pdgLight[iLightFirst]]};
