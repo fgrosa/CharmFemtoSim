@@ -11,6 +11,7 @@
 #include <TH1.h>
 #include <TH2.h>
 #include <TH3.h>
+#include <THn.h>
 #include <TMath.h>
 #include <TDatabasePDG.h>
 #include <TRandom3.h>
@@ -52,7 +53,7 @@ namespace
 void SimulateDDstarCorrelation(int nEvents=1000000, int tune=kCRMode2, int process=kSoftQCD, float energy=13000, int seed=42, std::string outFileNameRoot="AnalysisResults.root");
 float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2);
 template<typename T>
-bool CheckDauAcc(T &ptDauArray, T &etaDauArray, T &eDauArray, T &pdgDauArray, double ptMin, double etaMax);
+bool CheckDauAcc(T &ptDauArray, T &etaDauArray, T &eDauArray, T &pdgDauArray, double ptMin, double etaMin ,double etaMax);
 template<typename T, typename T2>
 bool IsFromBeauty(T &mothers, T2 &pythia);
 
@@ -171,17 +172,20 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     //__________________________________________________________
     // define outputs
     std::map<int, std::map<int, std::map<std::string, TH3F*>>> hPairSE, hPairME; // all combinations of D, D*, particle, antiparticle
-    std::map<int, std::map<int, std::map<std::string, TH3F*>>> hPairVsY; // all combinations of D, D*, particle, antiparticle
+    std::map<int, std::map<int, std::map<std::string, THnF*>>> hPairVsY; // all combinations of D, D*, particle, antiparticle
     for(auto &pdgDstar: DstarPDG)
     {
         for(auto &pdgDmeson: DmesonPDG)
         {
-            hPairSE[pdgDstar][pdgDmeson]["part"] = new TH3F(Form("hPairSE_%d_%d", pdgDstar, pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
-            hPairSE[pdgDstar][pdgDmeson]["antipart"] = new TH3F(Form("hPairSE_%d_%d", pdgDstar, -pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
-            hPairME[pdgDstar][pdgDmeson]["part"] = new TH3F(Form("hPairME_%d_%d", pdgDstar, pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
-            hPairME[pdgDstar][pdgDmeson]["antipart"] = new TH3F(Form("hPairME_%d_%d", pdgDstar, -pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 2000, 0., 2.);
-            hPairVsY[pdgDstar][pdgDmeson]["part"] = new TH3F(Form("hPairVsY_%d_%d", pdgDstar, pdgDmeson), "pairs;max dau #it{#eta}^{D};max dau #it{#eta}^{D*};#it{k}* (GeV/#it{c})", 80, -4., -4., 80, -4., 4., 2000, 0., 2.);
-            hPairVsY[pdgDstar][pdgDmeson]["antipart"] = new TH3F(Form("hPairVsY_%d_%d", pdgDstar, -pdgDmeson), "pairs;max dau #it{#eta}^{D};max dau #it{#eta}^{D*};#it{k}* (GeV/#it{c})", 80, -4., -4., 80, -4., 4., 2000, 0., 2.);
+            hPairSE[pdgDstar][pdgDmeson]["part"] = new TH3F(Form("hPairSE_%d_%d", pdgDstar, pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 400, 0., 2.);
+            hPairSE[pdgDstar][pdgDmeson]["antipart"] = new TH3F(Form("hPairSE_%d_%d", pdgDstar, -pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 400, 0., 2.);
+            hPairME[pdgDstar][pdgDmeson]["part"] = new TH3F(Form("hPairME_%d_%d", pdgDstar, pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 400, 0., 2.);
+            hPairME[pdgDstar][pdgDmeson]["antipart"] = new TH3F(Form("hPairME_%d_%d", pdgDstar, -pdgDmeson), "pairs;#it{p}_{T}^{D} (GeV/#it{c});#it{p}_{T}^{D*} (GeV/#it{c});#it{k}* (GeV/#it{c})", 100, 0., 10., 100, 0., 10., 400, 0., 2.);
+            int nBins[4] = {80, 80, 400, 2};
+            double mins[4] = {-4., -4., 0., 0.5};
+            double maxs[4] = {4., 4., 2., 2.5};
+            hPairVsY[pdgDstar][pdgDmeson]["part"] = new THnF(Form("hPairVsY_%d_%d", pdgDstar, pdgDmeson), "pairs;#it{y}^{D};#it{y}^{D*};#it{k}* (GeV/#it{c});isInAccepance", 4, nBins, mins, maxs);
+            hPairVsY[pdgDstar][pdgDmeson]["antipart"] = new THnF(Form("hPairVsY_%d_%d", pdgDstar, -pdgDmeson), "pairs;#it{y}^{D};#it{y}^{D*};#it{k}* (GeV/#it{c});isInAccepance", 4, nBins, mins, maxs);
         }
     }
 
@@ -197,12 +201,16 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     std::vector<float> effDstar{};
     std::vector<int> motherDmeson{};
     std::vector<int> idxDstar{};
-    std::vector<float> etaDauDmeson{};
-    std::vector<float> etaDauDstar{};
+    std::vector<float> yDmeson{};
+    std::vector<float> yDstar{};
     std::deque<std::vector<int>> pdgBufferDmeson{};
     std::deque<std::vector<int>> pdgBufferDstar{};
     std::deque<std::vector<float>> effBufferDmeson{};
     std::deque<std::vector<float>> effBufferDstar{};
+    std::vector<bool> isDstarInALICE2Acceptance{};
+    std::vector<bool> isDstarInLHCbAcceptance{};
+    std::vector<bool> isDmesonInALICE2Acceptance{};
+    std::vector<bool> isDmesonInLHCbAcceptance{};
 
     for (int iEvent=0; iEvent<nEvents; iEvent++)
     {
@@ -260,8 +268,10 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                 bool isFromB = IsFromBeauty(mothers, pythia);
                 if(!isFromB)
                 {
-                    if(!CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, 4.))
+                    if(!CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, -4., 4.))
                         continue;
+                    isDstarInALICE2Acceptance.push_back(CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, -0.8, 0.8));
+                    isDstarInLHCbAcceptance.push_back(CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, 2., 5.));
 
                     auto ptD = pythia.event[dauList[0]].pT();
                     auto yD = abs(pythia.event[dauList[0]].y());
@@ -298,7 +308,7 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                     partDstar.push_back(part);
                     pdgDstar.push_back(pdg);
                     idxDstar.push_back(iPart);
-                    etaDauDstar.push_back(etaMaxDau);
+                    yDstar.push_back(pythia.event[iPart].y());
                 }
             }
             else if(isDmeson)
@@ -306,8 +316,10 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                 bool isFromB = IsFromBeauty(mothers, pythia);
                 if(!isFromB)
                 {
-                    if(!CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, 4.))
+                    if(!CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, -4., 4.))
                         continue;
+                    isDmesonInALICE2Acceptance.push_back(CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, -0.8, 0.8));
+                    isDmesonInLHCbAcceptance.push_back(CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, 2., 5.));
 
                     auto ptPart = pythia.event[iPart].pT();
                     auto yPart = abs(pythia.event[iPart].y());
@@ -330,7 +342,7 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                     partDmeson.push_back(part);
                     pdgDmeson.push_back(pdg);
                     motherDmeson.push_back(pythia.event[iPart].mother1());
-                    etaDauDmeson.push_back(etaMaxDau);
+                    yDmeson.push_back(pythia.event[iPart].y());
                 }
             }
         }
@@ -369,13 +381,20 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                 double kStar = ComputeKstar(partDstar[iDstar], partDmeson[iDmeson]);
                 double pTDstar = partDstar[iDstar].pt();
                 double pTDmeson = partDmeson[iDmeson].pt();
+                double isInAccepance = 0;
+                if(isDmesonInALICE2Acceptance[iDmeson] && isDstarInALICE2Acceptance[iDstar])
+                    isInAccepance = 1.;
+                else if(isDmesonInLHCbAcceptance[iDmeson] && isDstarInLHCbAcceptance[iDstar])
+                    isInAccepance = 2.;
                 if(pdgDstar[iDstar] * pdgDmeson[iDmeson] > 0) {
                     hPairSE[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["part"]->Fill(pTDmeson, pTDstar, kStar, effDstar[iDstar]*effDmeson[iDmeson]);
-                    hPairVsY[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["part"]->Fill(etaDauDmeson[iDmeson], etaDauDstar[iDstar], kStar);
+                    double vecForHist[4] = {yDmeson[iDmeson], yDstar[iDstar], kStar, isInAccepance};
+                    hPairVsY[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["part"]->Fill(vecForHist);
                 }
                 else {
                     hPairSE[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["antipart"]->Fill(pTDmeson, pTDstar, kStar, effDstar[iDstar]*effDmeson[iDmeson]);
-                    hPairVsY[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["antipart"]->Fill(etaDauDmeson[iDmeson], etaDauDstar[iDstar], kStar);
+                    double vecForHist[4] = {yDmeson[iDmeson], yDstar[iDstar], kStar, isInAccepance};
+                    hPairVsY[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["antipart"]->Fill(vecForHist);
                 }
             }
         }
@@ -405,13 +424,17 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
         pdgDstar.clear();
         idxDstar.clear();
         effDstar.clear();
-        etaDauDstar.clear();
+        yDstar.clear();
+        isDstarInALICE2Acceptance.clear();
+        isDstarInLHCbAcceptance.clear();
 
         partDmeson.clear();
         pdgDmeson.clear();
         motherDmeson.clear();
         effDmeson.clear();
-        etaDauDmeson.clear();
+        yDmeson.clear();
+        isDmesonInALICE2Acceptance.clear();
+        isDmesonInLHCbAcceptance.clear();
     }
 
     // save root output file
@@ -446,18 +469,18 @@ float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector pa
 
 //__________________________________________________________________________________________________
 template<typename T>
-bool CheckDauAcc(T &ptDauArray, T &etaDauArray, T &eDauArray, T &pdgDauArray, double ptMin, double etaMax)
+bool CheckDauAcc(T &ptDauArray, T &etaDauArray, T &eDauArray, T &pdgDauArray, double ptMin, double etaMin, double etaMax)
 {
     for(size_t iDau=0; iDau<ptDauArray.size(); iDau++)
     {
         if(pdgDauArray[iDau] != 22) // no photons
         {
-            if(ptDauArray[iDau] < ptMin || std::abs(etaDauArray[iDau]) > etaMax) // pT>50 MeV and |eta|<4
+            if(ptDauArray[iDau] < ptMin || etaDauArray[iDau] < etaMin || etaDauArray[iDau] > etaMax) // pT>50 MeV and |eta|<4
                 return false;
         }
         else // photons
         {
-            if(eDauArray[iDau] < 0.4 || etaDauArray[iDau] > 4. || etaDauArray[iDau] < 1.6) // E>400 MeV and -1.6<eta<4
+            if(eDauArray[iDau] < 0.4 || etaDauArray[iDau] > 4. || etaDauArray[iDau] < -1.6) // E>400 MeV and -1.6<eta<4
                 return false;
         }
     }
