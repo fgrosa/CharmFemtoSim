@@ -146,7 +146,7 @@ void SimulateSourceCharmHadrons(int nEvents, int seed, std::string outFileName, 
                 ComputeRandKstar(momLight[iLight], momCharm[iCharm], prodvtxLight[iLight], prodvtxCharm[iCharm], kStar, rStar, mT);
                 if(mT < 1.8 || kStar > 1)
                     continue;
-                float arr4tuple[8] = {rStar, kStar, mT, (float)nCh, (float)pdgCharm[iCharm], (float)pdgLight[iLight], (float)pdgMotherCharm[iCharm], (float)pdgMotherLight[iLight]};
+                float arr4tuple[8] = {rStar, kStar, mT, (float)nCh, (float)pdgLight[iLight], (float)pdgCharm[iCharm], (float)pdgMotherLight[iLight], (float)pdgMotherCharm[iCharm]};
                 tupleRadius->Fill(arr4tuple);
             }
         }
@@ -159,7 +159,7 @@ void SimulateSourceCharmHadrons(int nEvents, int seed, std::string outFileName, 
                 ComputeRandKstar(momLight[iLightFirst], momLight[iLightSecond], prodvtxLight[iLightFirst], prodvtxLight[iLightSecond], kStar, rStar, mT);
                 if(mT < 1.8 || kStar > 1.)
                     continue;
-                float arr4tuple[8] = {rStar, kStar, mT, (float)nCh, (float)pdgLight[iLightSecond], (float)pdgLight[iLightFirst], (float)pdgMotherLight[iLightSecond], (float)pdgMotherLight[iLightFirst]};
+                float arr4tuple[8] = {rStar, kStar, mT, (float)nCh, (float)pdgLight[iLightFirst], (float)pdgLight[iLightSecond], (float)pdgMotherLight[iLightFirst], (float)pdgMotherLight[iLightSecond]};
                 tupleRadius->Fill(arr4tuple);
             }
         }
@@ -194,7 +194,10 @@ void ComputeRandKstar(ROOT::Math::PxPyPzMVector mom1, ROOT::Math::PxPyPzMVector 
 
     ROOT::Math::PxPyPzMVector partRelK = mom1CM - mom2CM;
     kStar = 0.5 * partRelK.P();
-    mT = std::sqrt(partRelK.M()*partRelK.M() + partRelK.Pt()*partRelK.Pt());
+
+    float pairKT = 0.5 * trackSum.Pt();
+    float averageMass = 0.5 * (mom1.M() + mom2.M());
+    mT = std::sqrt(pairKT*pairKT + averageMass*averageMass);
 
     ROOT::Math::XYZTVector partRelR = vtx1CM - vtx2CM;
     rStar = 0.5 * std::sqrt(partRelR.X()*partRelR.X() + partRelR.Y()*partRelR.Y() + partRelR.Z()*partRelR.Z());
