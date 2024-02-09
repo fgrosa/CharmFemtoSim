@@ -207,6 +207,8 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     std::deque<std::vector<int>> pdgBufferDstar{};
     std::deque<std::vector<float>> effBufferDmeson{};
     std::deque<std::vector<float>> effBufferDstar{};
+    std::deque<int> evIdxBufferDstar{};
+    std::deque<int> evIdxBufferDmeson{};
     std::vector<bool> isDstarInALICE2Acceptance{};
     std::vector<bool> isDstarInLHCbAcceptance{};
     std::vector<bool> isDmesonInALICE2Acceptance{};
@@ -352,22 +354,26 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
             partBufferDmeson.push_back(partDmeson);
             pdgBufferDmeson.push_back(pdgDmeson);
             effBufferDmeson.push_back(effDmeson);
+            evIdxBufferDmeson.push_back(iEvent);
         }
         if(partDstar.size() > 0)
         {
             partBufferDstar.push_back(partDstar);
             pdgBufferDstar.push_back(pdgDstar);
             effBufferDstar.push_back(effDstar);
+            evIdxBufferDstar.push_back(iEvent);
         }
         if (partBufferDmeson.size() > 10) { //buffer full, let's kill the first entry
             partBufferDmeson.pop_front();
             pdgBufferDmeson.pop_front();
             effBufferDmeson.pop_front();
+            evIdxBufferDmeson.pop_front();
         }
         if (partBufferDmeson.size() > 10) { //buffer full, let's kill the first entry
             partBufferDstar.pop_front();
             pdgBufferDstar.pop_front();
             effBufferDstar.pop_front();
+            evIdxBufferDstar.pop_front();
         }
 
         // same event
@@ -405,8 +411,13 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
 
         for(size_t iDstar=0; iDstar<partBufferDstar[partBufferDstar.size()-1].size(); iDstar++) // last only
         {
-            for(size_t iME=0; iME<partBufferDmeson.size()-1; iME++) // from 0 to last-1
+            for(size_t iME=0; iME<partBufferDmeson.size(); iME++)
             {
+                if (evIdxBufferDmeson[iME] == evIdxBufferDstar[evIdxBufferDstar.size()-1]) { // same event!
+                    continue;
+                }
+
+                // if different event than the one of Dstar, loop over D mesons
                 for(size_t iDmeson=0; iDmeson<partBufferDmeson[iME].size(); iDmeson++)
                 {
                     double kStar = ComputeKstar(partBufferDstar[partBufferDstar.size()-1][iDstar], partBufferDmeson[iME][iDmeson]);
