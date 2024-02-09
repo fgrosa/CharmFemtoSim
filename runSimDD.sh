@@ -1,2 +1,3 @@
 #!/bin/bash
-parallel -j80 "root -b -q -l 'SimulateDDstarCorrelation.cc(2500000, kCRMode2, kSoftQCD, 14000, "{}", \"AnalysisResults_vsY_"{}".root\")'" ::: {1..80}
+NEVENTSPERJOB=625000 #1250000
+parallel -j96 "root -b -q -l 'SimulateDDstarCorrelation.cc($NEVENTSPERJOB, kCRMode2, kHardQCD, 14000, "{}", \"hardqcd/AnalysisResults_vsY_"{}".root\")'" ::: {1..96}

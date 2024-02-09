@@ -8,6 +8,8 @@ import argparse
 import pandas as pd
 import numpy as np
 import yaml
+from ROOT import gROOT
+gROOT.SetBatch(True)
 from ROOT import TFile, TGaxis, TCanvas, TF1, TGraph, TH1F, TSpline3, TLegend, TLatex, TLine # pylint: disable=import-error,no-name-in-module
 from ROOT import kAzure, kGreen, kOrange, kRed, kBlack, kGray, kFullCircle, kOpenCircle, kFullDiamond, gStyle, kRainBow # pylint: disable=import-error,no-name-in-module
 
@@ -230,6 +232,7 @@ else:
     hCFPythia.Fit('fPol2', '0', '', 0.2, 2.)
 hMEDistr.Scale(scaleFact)
 
+isFlat = True
 lineAtOne = TLine(0., 1., 2., 1.)
 lineAtOne.SetLineWidth(2)
 lineAtOne.SetLineStyle(9)
@@ -328,8 +331,8 @@ for pred in predictions:
     for iKstarBin in range(1, hSEPred[pred].GetNbinsX()+1):
         signalSq = hSEPred[pred].GetBinContent(iKstarBin)
         signal = np.sqrt(signalSq)
-        bkgD = 1./hSignalOverBkgDVsKstar.GetBinContent(iKstarBin) * signal
-        bkgDstar = 1./hSignalOverBkgDstarVsKstar.GetBinContent(iKstarBin) * signal * 10
+        bkgD = 1. / hSignalOverBkgDVsKstar.GetBinContent(iKstarBin) * signal
+        bkgDstar = 1. / hSignalOverBkgDstarVsKstar.GetBinContent(iKstarBin) * signal * 10
         if hSEPred[pred].GetBinContent(iBin) != np.nan:
             hSEPredBkgD[pred].SetBinContent(iKstarBin, signal * bkgD)
             hSEPredBkgDstar[pred].SetBinContent(iKstarBin, signal * bkgDstar)

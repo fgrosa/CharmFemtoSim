@@ -239,8 +239,8 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                         isFromDstar = true;
                 }
             }
-            if(isFromDstar)
-                continue;
+            // if(isFromDstar)
+            //     continue;
 
             auto dauList = pythia.event[iPart].daughterList();
             std::vector<double> ptDau{}, etaDau{}, pdgDau{}, eDau{};
@@ -369,12 +369,6 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
             effBufferDmeson.pop_front();
             evIdxBufferDmeson.pop_front();
         }
-        if (partBufferDmeson.size() > 10) { //buffer full, let's kill the first entry
-            partBufferDstar.pop_front();
-            pdgBufferDstar.pop_front();
-            effBufferDstar.pop_front();
-            evIdxBufferDstar.pop_front();
-        }
 
         // same event
         for(size_t iDstar=0; iDstar<partDstar.size(); iDstar++)
@@ -406,27 +400,28 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
         }
 
         // mixed event
-        if(partBufferDmeson.size() < 2 || partBufferDstar.size() < 2) // to avoid repetitions
-            continue;
-
-        for(size_t iDstar=0; iDstar<partBufferDstar[partBufferDstar.size()-1].size(); iDstar++) // last only
-        {
-            for(size_t iME=0; iME<partBufferDmeson.size(); iME++)
+        bool isPairedME{false};
+        if (partBufferDmeson.size() >= 2 && partBufferDstar.size() >= 1) { // otherwise there is nothing to mix
+            for(size_t iDstar=0; iDstar<partBufferDstar.back().size(); iDstar++) // last only
             {
-                if (evIdxBufferDmeson[iME] == evIdxBufferDstar[evIdxBufferDstar.size()-1]) { // same event!
-                    continue;
-                }
-
-                // if different event than the one of Dstar, loop over D mesons
-                for(size_t iDmeson=0; iDmeson<partBufferDmeson[iME].size(); iDmeson++)
+                for(size_t iME=0; iME<partBufferDmeson.size(); iME++)
                 {
-                    double kStar = ComputeKstar(partBufferDstar[partBufferDstar.size()-1][iDstar], partBufferDmeson[iME][iDmeson]);
-                    double pTDstar = partDstar[iDstar].pt();
-                    double pTDmeson = partDmeson[iDmeson].pt();
-                    if(pdgBufferDstar[partBufferDstar.size()-1][iDstar] * pdgBufferDmeson[iME][iDmeson] > 0)
-                        hPairME[std::abs(pdgBufferDstar[partBufferDstar.size()-1][iDstar])][std::abs(pdgBufferDmeson[iME][iDmeson])]["part"]->Fill(pTDmeson, pTDstar, kStar, effBufferDstar[partBufferDstar.size()-1][iDstar]*effBufferDmeson[iME][iDmeson]);
-                    else
-                        hPairME[std::abs(pdgBufferDstar[partBufferDstar.size()-1][iDstar])][std::abs(pdgBufferDmeson[iME][iDmeson])]["antipart"]->Fill(pTDmeson, pTDstar, kStar, effBufferDstar[partBufferDstar.size()-1][iDstar]*effBufferDmeson[iME][iDmeson]);
+                    if (evIdxBufferDmeson[iME] == evIdxBufferDstar.back()) { // same event!
+                        continue;
+                    }
+
+                    // if different event than the one of Dstar, loop over D mesons
+                    for(size_t iDmeson=0; iDmeson<partBufferDmeson[iME].size(); iDmeson++)
+                    {
+                        isPairedME = true;
+                        double kStar = ComputeKstar(partBufferDstar.back()[iDstar], partBufferDmeson[iME][iDmeson]);
+                        double pTDstar = partDstar[iDstar].pt();
+                        double pTDmeson = partDmeson[iDmeson].pt();
+                        if(pdgBufferDstar.back()[iDstar] * pdgBufferDmeson[iME][iDmeson] > 0)
+                            hPairME[std::abs(pdgBufferDstar.back()[iDstar])][std::abs(pdgBufferDmeson[iME][iDmeson])]["part"]->Fill(pTDmeson, pTDstar, kStar, effBufferDstar.back()[iDstar]*effBufferDmeson[iME][iDmeson]);
+                        else
+                            hPairME[std::abs(pdgBufferDstar.back()[iDstar])][std::abs(pdgBufferDmeson[iME][iDmeson])]["antipart"]->Fill(pTDmeson, pTDstar, kStar, effBufferDstar.back()[iDstar]*effBufferDmeson[iME][iDmeson]);
+                    }
                 }
             }
         }
@@ -446,6 +441,14 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
         yDmeson.clear();
         isDmesonInALICE2Acceptance.clear();
         isDmesonInLHCbAcceptance.clear();
+
+        // once the event with D* mesons was used, we do not use it anymore to avoid repetitions
+        if (isPairedME) {
+            partBufferDstar.pop_back();
+            pdgBufferDstar.pop_back();
+            effBufferDstar.pop_back();
+            evIdxBufferDstar.pop_back();
+        }
     }
 
     // save root output file
