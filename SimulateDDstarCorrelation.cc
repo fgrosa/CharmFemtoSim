@@ -42,7 +42,8 @@ namespace
     enum processes
     {
         kSoftQCD = 0,
-        kHardQCD
+        kHardQCD,
+        kNonDiffractive
     };
 
     std::array<int, 2> DmesonPDG{411, 421}; // D+, D0
@@ -67,6 +68,10 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     if(process == kSoftQCD)
     {
         pythia.readString("SoftQCD:all = on");
+    }
+    else if(process == kNonDiffractive)
+    {
+        pythia.readString("SoftQCD:nonDiffractive = on");
     }
     else if(process == kHardQCD)
     {
