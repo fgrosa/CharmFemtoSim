@@ -250,7 +250,7 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                 if((absPdg != 423 && (absPdgDau == 211 || absPdgDau == 321)) ||
                    (absPdg == 423 && (absPdgDau == 211 || absPdgDau == 321 || absPdgDau == 22)))
                 {
-                    ptDau.push_back(std::sqrt(pythia.event[dau].px()*pythia.event[dau].px() + pythia.event[dau].py()*pythia.event[dau].py() + pythia.event[dau].pz()*pythia.event[dau].pz()));
+                    ptDau.push_back(pythia.event[dau].pT());
                     etaDau.push_back(pythia.event[dau].eta());
                     pdgDau.push_back(std::abs(pythia.event[dau].id()));
                     eDau.push_back(pythia.event[dau].e());
