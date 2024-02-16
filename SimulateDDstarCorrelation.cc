@@ -413,8 +413,8 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                 bool isFromB = IsFromBeauty(mothers, pythia);
                 if(!isFromB)
                 {
-                    if(!CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, -4., 4.))
-                        continue;
+                    // No cut on acceptance of the D daughters because the candidates are later scaled using LUTs for D performance
+
                     isDmesonInALICE2Acceptance.push_back(CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, -0.8, 0.8));
                     isDmesonInLHCbAcceptance.push_back(CheckDauAcc(ptDau, etaDau, eDau, pdgDau, 0.05, 2., 5.));
 
