@@ -635,9 +635,6 @@ bool CheckDauAcc(T &ptDauArray, T &etaDauArray, T &eDauArray, T &pdgDauArray, do
 {
     for(size_t iDau=0; iDau<ptDauArray.size(); iDau++)
     {
-        if (std::abs(pdgDauArray[iDau]) == 421) {
-            return true; // the check on the acceptance depends on y, not eta. Check later
-        }
         if(pdgDauArray[iDau] != 22) // no photons
         {
             if(ptDauArray[iDau] < ptMin || etaDauArray[iDau] < etaMin || etaDauArray[iDau] > etaMax) // pT>50 MeV and |eta|<4
