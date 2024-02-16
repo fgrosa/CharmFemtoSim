@@ -24,6 +24,7 @@
 #include "Math/GenVector/Boost.h"
 
 #include "Pythia8/Pythia.h"
+#include "ALICE3/Core/DelphesO2TrackSmearer.h"
 
 #endif
 
@@ -51,7 +52,7 @@ namespace
 }
 
 //__________________________________________________________________________________________________
-void SimulateDDstarCorrelation(int nEvents=1000000, int tune=kCRMode2, int process=kSoftQCD, float energy=13000, int seed=42, std::string outFileNameRoot="AnalysisResults.root");
+void SimulateDDstarCorrelation(int nEvents=1000000, int tune=kCRMode2, int process=kSoftQCD, float energy=13000, bool smearKstar = false, int B = 10,  int seed=42, std::string outFileNameRoot="AnalysisResults.root");
 float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2);
 template<typename T>
 bool CheckDauAcc(T &ptDauArray, T &etaDauArray, T &eDauArray, T &pdgDauArray, double ptMin, double etaMin ,double etaMax);
@@ -59,7 +60,7 @@ template<typename T, typename T2>
 bool IsFromBeauty(T &mothers, T2 &pythia);
 
 //__________________________________________________________________________________________________
-void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy, int seed, std::string outFileNameRoot)
+void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy, bool smearKstar, int B, int seed, std::string outFileNameRoot)
 {
     //__________________________________________________________
     // create and configure pythia generator
@@ -174,6 +175,17 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     TGraph* gPtEffPi = (TGraph*)inFileEffPi->Get("lutCovm.el.20kG.rmin20.geometry_v1.dat;1");
     TSpline3* sPtEffPi = new TSpline3("sPtEffPi", gPtEffPi);
 
+    // Load Look-up tables for momentum smearing
+    std::map<int, o2::delphes::TrackSmearer *> luts = {
+        {211, new o2::delphes::TrackSmearer()},
+        {321, new o2::delphes::TrackSmearer()},
+    };
+
+    if (smearKstar) {
+        // export CHARMFEMTOSIM=/path/to/CharmFemtoSim 
+        luts[211]->loadTable(211, Form("%s/lut/lutCovm.pi.%dkG.rmin20.geometry_v2.dat", std::getenv("CHARMFEMTOSIM"), B));
+        luts[321]->loadTable(321, Form("%s/lut/lutCovm.ka.%dkG.rmin20.geometry_v2.dat", std::getenv("CHARMFEMTOSIM"), B));
+    }
     //__________________________________________________________
     // define outputs
     std::map<int, std::map<int, std::map<std::string, TH3F*>>> hPairSE, hPairME; // all combinations of D, D*, particle, antiparticle
@@ -311,7 +323,58 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                         effDstar.push_back(effD*effGammma);
 
                     }
-                    ROOT::Math::PxPyPzMVector part(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+
+                    ROOT::Math::PxPyPzMVector part;
+
+                    if (smearKstar) {
+                        double nCh = 10; // todo: set nCh to proper multiplicity estimator
+
+                        // Smear the momentum of the daus
+                        std::vector<ROOT::Math::PxPyPzMVector> daus = {};
+                        for(const auto &iDau: dauList) {
+                            auto absPdgDau = std::abs(pythia.event[iDau].id());
+
+                            if(absPdgDau == 211 || absPdgDau == 321) {
+                                double pt = pythia.event[iDau].pT();
+                                double eta = pythia.event[iDau].eta();
+                                
+                                double ptRes =  luts[absPdgDau]->getAbsPtRes(absPdgDau, nCh, eta, pt);
+                                double etaRes =  luts[absPdgDau]->getAbsEtaRes(absPdgDau, nCh, eta, pt);
+
+                                double smearedPt = gRandom->Gaus(pt, ptRes);
+                                double smearedEta = gRandom->Gaus(eta, etaRes);
+
+                                // Assume that the smearing in px and py equally contribute to the one on pt
+                                double smearedPx = pythia.event[iDau].px() * smearedPt / pt;
+                                double smearedPy = pythia.event[iDau].py() * smearedPt / pt;
+                                double smearedPz = pythia.event[iDau].pz(); // todo: smear pz
+
+                                ROOT::Math::PxPyPzMVector dau(smearedPx, smearedPy, smearedPz, TDatabasePDG::Instance()->GetParticle(absPdgDau)->Mass());
+                                daus.push_back(dau);
+                            } else if (absPdgDau == 22) {
+                                // todo: do some smearing of the photon energy
+                                ROOT::Math::PxPyPzMVector dau(pythia.event[iDau].px(), pythia.event[iDau].py(), pythia.event[iDau].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                                daus.push_back(dau);
+                            } else {
+                                // todo: check
+                                printf("Daughter %d not implemented. Exit!\n", absPdgDau);
+                                exit(1);
+                            }
+                        }
+
+                        // Reconstruct the D mesons with the smeared momentua
+                        for (const auto& dau: daus) {
+                            part += dau;
+                        }
+
+                        // todo: check smearing on the D meson candidates
+
+                        // Reassign the mass of the D meson
+                        part = ROOT::Math::PxPyPzMVector(part.px(), part.py(), part.pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    } else {
+                        part = ROOT::Math::PxPyPzMVector(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    }
+
                     partDstar.push_back(part);
                     pdgDstar.push_back(pdg);
                     idxDstar.push_back(iPart);
@@ -345,7 +408,54 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
 
                     auto binPt = hPtEffD[iY]->GetXaxis()->FindBin(ptPart);
                     effDmeson.push_back(hPtEffD[iY]->GetBinContent(binPt));
-                    ROOT::Math::PxPyPzMVector part(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+
+                    ROOT::Math::PxPyPzMVector part;
+
+                    if (smearKstar) {
+                        double nCh = 10; // todo: set nCh to proper multiplicity estimator
+
+                        // Smear the momentum of the daus
+                        std::vector<ROOT::Math::PxPyPzMVector> daus = {};
+                        for(const auto &iDau: dauList) {
+                            auto absPdgDau = std::abs(pythia.event[iDau].id());
+
+                            if(absPdgDau == 211 || absPdgDau == 321) {
+                                double pt = pythia.event[iDau].pT();
+                                double eta = pythia.event[iDau].eta();
+                                
+                                double ptRes =  luts[absPdgDau]->getAbsPtRes(absPdgDau, nCh, eta, pt);
+                                double etaRes =  luts[absPdgDau]->getAbsEtaRes(absPdgDau, nCh, eta, pt);
+
+                                double smearedPt = gRandom->Gaus(pt, ptRes);
+                                double smearedEta = gRandom->Gaus(eta, etaRes);
+
+                                // Assume that the smearing in px and py equally contribute to the one on pt
+                                double smearedPx = pythia.event[iDau].px() * smearedPt / pt;
+                                double smearedPy = pythia.event[iDau].py() * smearedPt / pt;
+                                double smearedPz = pythia.event[iDau].pz(); // todo: smear pz
+
+                                ROOT::Math::PxPyPzMVector dau(smearedPx, smearedPy, smearedPz, TDatabasePDG::Instance()->GetParticle(absPdgDau)->Mass());
+                                daus.push_back(dau);
+                            } else {
+                                // todo: check
+                                printf("Daughter %d not implemented. Exit!\n", absPdgDau);
+                                exit(1);
+                            }
+                        }
+
+                        // Reconstruct the D mesons with the smeared momentua
+                        for (const auto& dau: daus) {
+                            part += dau;
+                        }
+
+                        // todo: check smearing on the D meson candidates
+
+                        // Reassign the mass of the D meson
+                        part = ROOT::Math::PxPyPzMVector(part.px(), part.py(), part.pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    } else {
+                        part = ROOT::Math::PxPyPzMVector(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    }
+
                     partDmeson.push_back(part);
                     pdgDmeson.push_back(pdg);
                     motherDmeson.push_back(pythia.event[iPart].mother1());
