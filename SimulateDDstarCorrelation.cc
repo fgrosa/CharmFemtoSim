@@ -190,6 +190,7 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     // define outputs
     std::map<int, std::map<int, std::map<std::string, TH3F*>>> hPairSE, hPairME; // all combinations of D, D*, particle, antiparticle
     std::map<int, std::map<int, std::map<std::string, THnF*>>> hPairVsY; // all combinations of D, D*, particle, antiparticle
+    std::map<int, std::map<int, std::map<std::string, TH2F*>>> hResoSE; // k* resolution
     for(auto &pdgDstar: DstarPDG)
     {
         for(auto &pdgDmeson: DmesonPDG)
@@ -203,6 +204,9 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
             double maxs[4] = {4., 4., 2., 2.5};
             hPairVsY[pdgDstar][pdgDmeson]["part"] = new THnF(Form("hPairVsY_%d_%d", pdgDstar, pdgDmeson), "pairs;#it{y}^{D};#it{y}^{D*};#it{k}* (GeV/#it{c});isInAccepance", 4, nBins, mins, maxs);
             hPairVsY[pdgDstar][pdgDmeson]["antipart"] = new THnF(Form("hPairVsY_%d_%d", pdgDstar, -pdgDmeson), "pairs;#it{y}^{D};#it{y}^{D*};#it{k}* (GeV/#it{c});isInAccepance", 4, nBins, mins, maxs);
+
+            hResoSE[pdgDstar][pdgDmeson]["part"] = new TH2F(Form("hResoSE_%d_%d", pdgDstar, pdgDmeson), "#it{k}* resolution;#it{k}*_{true} (GeV/#it{c});#it{k}*_{reco} (GeV/#it{c})", 1000, 0, 2, 1000, 0, 2);
+            hResoSE[pdgDstar][pdgDmeson]["antipart"] = new TH2F(Form("hResoSE_%d_%d", pdgDstar, -pdgDmeson), "#it{k}* resolution;#it{k}*_{true} (GeV/#it{c});#it{k}*_{reco} (GeV/#it{c})", 1000, 0, 2, 1000, 0, 2);
         }
     }
 
@@ -210,6 +214,8 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
     // perform the simulation
     std::vector<ROOT::Math::PxPyPzMVector> partDmeson{};
     std::vector<ROOT::Math::PxPyPzMVector> partDstar{};
+    std::vector<ROOT::Math::PxPyPzMVector> smearedPartDmeson{};
+    std::vector<ROOT::Math::PxPyPzMVector> smearedPartDstar{};
     std::deque<std::vector<ROOT::Math::PxPyPzMVector>> partBufferDmeson{};
     std::deque<std::vector<ROOT::Math::PxPyPzMVector>> partBufferDstar{};
     std::vector<int> pdgDmeson{};
@@ -324,7 +330,11 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
 
                     }
 
-                    ROOT::Math::PxPyPzMVector part;
+                    ROOT::Math::PxPyPzMVector part = ROOT::Math::PxPyPzMVector(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    partDstar.push_back(part);
+                    pdgDstar.push_back(pdg);
+                    idxDstar.push_back(iPart);
+                    yDstar.push_back(pythia.event[iPart].y());
 
                     if (smearKstar) {
                         double nCh = 10; // todo: set nCh to proper multiplicity estimator
@@ -355,30 +365,47 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                                 // todo: do some smearing of the photon energy
                                 ROOT::Math::PxPyPzMVector dau(pythia.event[iDau].px(), pythia.event[iDau].py(), pythia.event[iDau].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
                                 daus.push_back(dau);
-                            } else {
+                            } else if (absPdgDau == 421) {
+                                auto dauDzeroList = pythia.event[iDau].daughterList();
+                                for(const auto &iDauDzero: dauDzeroList) {
+                                    int absPdgDauDzero = std::abs(pythia.event[iDauDzero].id());
+
+                                    double pt = pythia.event[iDauDzero].pT();
+                                    double eta = pythia.event[iDauDzero].eta();
+
+                                    double ptRes =  luts[absPdgDauDzero]->getAbsPtRes(absPdgDauDzero, nCh, eta, pt);
+                                    double etaRes =  luts[absPdgDauDzero]->getAbsEtaRes(absPdgDauDzero, nCh, eta, pt);
+
+                                    double smearedPt = gRandom->Gaus(pt, ptRes);
+                                    double smearedEta = gRandom->Gaus(eta, etaRes);
+
+                                    // Assume that the smearing in px and py equally contribute to the one on pt
+                                    double smearedPx = pythia.event[iDauDzero].px() * smearedPt / pt;
+                                    double smearedPy = pythia.event[iDauDzero].py() * smearedPt / pt;
+                                    double smearedPz = pythia.event[iDauDzero].pz(); // todo: smear pz
+
+                                    ROOT::Math::PxPyPzMVector dau(smearedPx, smearedPy, smearedPz, TDatabasePDG::Instance()->GetParticle(absPdgDauDzero)->Mass());
+                                    daus.push_back(dau);
+                                }
+                            }
+                                else {
                                 // todo: check
                                 printf("Daughter %d not implemented. Exit!\n", absPdgDau);
                                 exit(1);
                             }
                         }
 
+                        ROOT::Math::PxPyPzMVector smearedPart(0, 0, 0, 0);
+
                         // Reconstruct the D mesons with the smeared momentua
                         for (const auto& dau: daus) {
-                            part += dau;
+                            smearedPart += dau;
                         }
 
-                        // todo: check smearing on the D meson candidates
-
                         // Reassign the mass of the D meson
-                        part = ROOT::Math::PxPyPzMVector(part.px(), part.py(), part.pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
-                    } else {
-                        part = ROOT::Math::PxPyPzMVector(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                        smearedPart = ROOT::Math::PxPyPzMVector(smearedPart.px(), smearedPart.py(), smearedPart.pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                        smearedPartDstar.push_back(smearedPart);
                     }
-
-                    partDstar.push_back(part);
-                    pdgDstar.push_back(pdg);
-                    idxDstar.push_back(iPart);
-                    yDstar.push_back(pythia.event[iPart].y());
                 }
             }
             else if(isDmeson)
@@ -409,7 +436,11 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                     auto binPt = hPtEffD[iY]->GetXaxis()->FindBin(ptPart);
                     effDmeson.push_back(hPtEffD[iY]->GetBinContent(binPt));
 
-                    ROOT::Math::PxPyPzMVector part;
+                    ROOT::Math::PxPyPzMVector part = ROOT::Math::PxPyPzMVector(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    partDmeson.push_back(part);
+                    pdgDmeson.push_back(pdg);
+                    motherDmeson.push_back(pythia.event[iPart].mother1());
+                    yDmeson.push_back(pythia.event[iPart].y());
 
                     if (smearKstar) {
                         double nCh = 10; // todo: set nCh to proper multiplicity estimator
@@ -443,23 +474,19 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                             }
                         }
 
+                        ROOT::Math::PxPyPzMVector smearedPart(0, 0, 0, 0);
+
                         // Reconstruct the D mesons with the smeared momentua
                         for (const auto& dau: daus) {
-                            part += dau;
+                            smearedPart += dau;
                         }
 
                         // todo: check smearing on the D meson candidates
 
                         // Reassign the mass of the D meson
-                        part = ROOT::Math::PxPyPzMVector(part.px(), part.py(), part.pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
-                    } else {
-                        part = ROOT::Math::PxPyPzMVector(pythia.event[iPart].px(), pythia.event[iPart].py(), pythia.event[iPart].pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                        smearedPart = ROOT::Math::PxPyPzMVector(smearedPart.px(), smearedPart.py(), smearedPart.pz(), TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                        smearedPartDmeson.push_back(smearedPart);
                     }
-
-                    partDmeson.push_back(part);
-                    pdgDmeson.push_back(pdg);
-                    motherDmeson.push_back(pythia.event[iPart].mother1());
-                    yDmeson.push_back(pythia.event[iPart].y());
                 }
             }
         }
@@ -501,15 +528,16 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
                     isInAccepance = 1.;
                 else if(isDmesonInLHCbAcceptance[iDmeson] && isDstarInLHCbAcceptance[iDstar])
                     isInAccepance = 2.;
-                if(pdgDstar[iDstar] * pdgDmeson[iDmeson] > 0) {
-                    hPairSE[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["part"]->Fill(pTDmeson, pTDstar, kStar, effDstar[iDstar]*effDmeson[iDmeson]);
-                    double vecForHist[4] = {yDmeson[iDmeson], yDstar[iDstar], kStar, isInAccepance};
-                    hPairVsY[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["part"]->Fill(vecForHist);
-                }
-                else {
-                    hPairSE[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["antipart"]->Fill(pTDmeson, pTDstar, kStar, effDstar[iDstar]*effDmeson[iDmeson]);
-                    double vecForHist[4] = {yDmeson[iDmeson], yDstar[iDstar], kStar, isInAccepance};
-                    hPairVsY[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])]["antipart"]->Fill(vecForHist);
+
+                std::string pair = pdgDstar[iDstar] * pdgDmeson[iDmeson] > 0 ? "part" : "antipart";
+
+                hPairSE[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])][pair]->Fill(pTDmeson, pTDstar, kStar, effDstar[iDstar]*effDmeson[iDmeson]);
+                double vecForHist[4] = {yDmeson[iDmeson], yDstar[iDstar], kStar, isInAccepance};
+                hPairVsY[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])][pair]->Fill(vecForHist);
+
+                if (smearKstar) {
+                    double kStarSmeared = ComputeKstar(smearedPartDstar[iDstar], smearedPartDmeson[iDmeson]);
+                    hResoSE[std::abs(pdgDstar[iDstar])][std::abs(pdgDmeson[iDmeson])][pair]->Fill(kStar, kStarSmeared);
                 }
             }
         }
@@ -542,6 +570,7 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
         }
 
         partDstar.clear();
+        smearedPartDstar.clear();
         pdgDstar.clear();
         idxDstar.clear();
         effDstar.clear();
@@ -550,6 +579,7 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
         isDstarInLHCbAcceptance.clear();
 
         partDmeson.clear();
+        smearedPartDmeson.clear();
         pdgDmeson.clear();
         motherDmeson.clear();
         effDmeson.clear();
@@ -578,6 +608,9 @@ void SimulateDDstarCorrelation(int nEvents, int tune, int process, float energy,
             hPairVsY[pdgDstar][pdgDmeson]["antipart"]->Write();
             hPairME[pdgDstar][pdgDmeson]["part"]->Write();
             hPairME[pdgDstar][pdgDmeson]["antipart"]->Write();
+
+            hResoSE[pdgDstar][pdgDmeson]["part"]->Write();
+            hResoSE[pdgDstar][pdgDmeson]["antipart"]->Write();
         }
     }
     outFile.Close();
